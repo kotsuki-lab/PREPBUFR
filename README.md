@@ -7,7 +7,7 @@ Programs and scripts for decoding and observation thinning of PREPBUFR.
 	</dd>
 </dl>
 
-DOI: 10.5281/zenodo.15029781
+DOI: [10.5281/zenodo.15029781](https://doi.org/10.5281/zenodo.15029781)
 
 ## 1-2 Related resource
 <dl>
@@ -17,11 +17,21 @@ Output data of observation thinning of PREPBUFR.
 
 They are generated through the following processes, so the user does not need to use it, but they can use it for checking their products.
 
-DOI: 10.5281/zenodo.15029720
+DOI: [10.5281/zenodo.15029720](https://doi.org/10.5281/zenodo.15029720)
+	</dd>
+</dl>
+<dl>
+	<dt>ClimaX-LETKF_v1.13</dt>
+	<dd>
+ClimaX-LETKF system version 1.13.
+
+PREPBUFR observation data are assimilated to ClimaX by LETKF.
+
+DOI: [10.5281/zenodo.15029841](https://doi.org/10.5281/zenodo.15029841)
 	</dd>
 </dl>
 
-`PBDIR` is the absolute path of this package "PREPBUFR_v02" and `CLDIR` is the absolute path of the package "SYS20250121_SPEEDY-ClimaX_LETKFv1.13".
+`PBDIR` is the absolute path of this package and `CLDIR` is the absolute path of ClimaX-LETKF.
 
 # 2 How to do observation thinning of PREPBUFR
 
@@ -33,9 +43,9 @@ Change the compiler and its options if necesarry by editting `${PBDIR}/src/Mkinc
 
 `TOPSRCDIR` indicates `${PBDIR}/src` in every Makefile.
 
-#### (ii) Get NCEPLIBS-bufr-12.1.0 and compile it
+#### (ii) Get NCEPLIBS-bufr and compile it
 
-Compile NCEPLIBS following its guide.
+Download NCEPLIBS-bufr-12.1.0 and compile it following its guide.
 
 Later version than 12.1.0 may work but not checked.
 
@@ -52,13 +62,13 @@ Users run this program directly not directly but through the shell scripts descr
 
 ### (3) Download PREPBUFR data
 
-#### (i) Access "NCEP ADP Global Upper Air and Surface Weather Observations (PREPBUFR format)" (https://rda.ucar.edu/datasets/d337000/dataaccess/#).
+1) Access "NCEP ADP Global Upper Air and Surface Weather Observations (PREPBUFR format)" (https://rda.ucar.edu/datasets/d337000/dataaccess/#).
 
-#### (ii) Click "Web File Listing" at the row "UNION OF AVAILABLE PRODUCTS" and the column "DATA FILE DOWNLOADS".
+2) Click "Web File Listing" at the row "UNION OF AVAILABLE PRODUCTS" and the column "DATA FILE DOWNLOADS".
 
-#### (iii) Click "LINK" in the "Complete File List".
+3) Click "LINK" in the "Complete File List".
 
-#### (iv) Select the data file you need and download it.
+4) Select the data file you need and download it.
 
 
 ### (4) Decode PREPBUFR data
