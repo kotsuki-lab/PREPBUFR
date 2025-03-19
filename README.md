@@ -7,7 +7,7 @@ Programs and scripts for decoding and observation thinning of PREPBUFR.
 	</dd>
 </dl>
 
-DOI: 10.5281/zenodo.15029781
+DOI: [10.5281/zenodo.15029781](https://doi.org/10.5281/zenodo.15029781)
 
 ## 1-2 Related resource
 <dl>
@@ -17,11 +17,21 @@ Output data of observation thinning of PREPBUFR.
 
 They are generated through the following processes, so the user does not need to use it, but they can use it for checking their products.
 
-DOI: 10.5281/zenodo.15029720
+DOI: [10.5281/zenodo.15029720](https://doi.org/10.5281/zenodo.15029720)
+	</dd>
+</dl>
+<dl>
+	<dt>ClimaX-LETKF_v1.13</dt>
+	<dd>
+ClimaX-LETKF system version 1.13.
+
+PREPBUFR observation data are assimilated to ClimaX by LETKF.
+
+DOI: [10.5281/zenodo.15029841](https://doi.org/10.5281/zenodo.15029841)
 	</dd>
 </dl>
 
-`PBDIR` is the absolute path of this package "PREPBUFR_v02" and `CLDIR` is the absolute path of the package "SYS20250121_SPEEDY-ClimaX_LETKFv1.13".
+`PBDIR` is the absolute path of this package and `CLDIR` is the absolute path of ClimaX-LETKF.
 
 # 2 How to do observation thinning of PREPBUFR
 
