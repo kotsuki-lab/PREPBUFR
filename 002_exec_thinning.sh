@@ -112,7 +112,7 @@ while test $IY$IM$ID$IH -le $EY$EM$ED$EH; do
 !  nlat = 1800,
 !  west = -180, east=180, south=-90, north=90,
 !  is_south_to_north = .false.,
-!  f_elv = "cmf_v400_glb06min_elevtn.bin",
+!  f_elv = "topo/cmf_v400_glb06min_elevtn.bin",
 /
 
 &nml_common

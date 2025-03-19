@@ -151,7 +151,7 @@ SUBROUTINE set_common_XXXXXX
   !!open(31, file="./orography_t30.dat", form="unformatted")  ! KK
   !!  READ(31) phi0
   !!close(31)
-  open(31,file="./orography_x64y32.grd",form="unformatted",access="direct",status="old",recl=nlon*nlat*4)
+  open(31,file="topo/orography_x64y32.grd",form="unformatted",access="direct",status="old",recl=nlon*nlat*4)
     read(31,rec=1) phir(:,:) ; phi0(:,:)=dble(phir(:,:))
   close(31)
 
