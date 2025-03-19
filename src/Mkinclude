@@ -1,0 +1,66 @@
+DEBUG = false
+
+FOPT_OMP = -qopenmp
+
+USE_C = true
+TERMINAL_WIDTH = 128
+#==============================================================
+#
+#==============================================================
+ifeq ($(USE_C), true)
+  FOPT_USE_C = -DUSE_C
+endif
+ifdef TERMINAL_WIDTH
+  FOPT_TERMINAL_WIDTH = -DTERMINAL_WIDTH=$(TERMINAL_WIDTH)
+endif
+
+FC = ifort
+CC = icc
+
+ifeq ($(DEBUG), true)
+  FCFLAGS = -O0 -check all -check noarg_temp_created -warn all -CB\
+            -gen_interfaces -traceback -g\
+            -assume byterecl -convert big_endian\
+            -assume realloc_lhs -fstack-protector\
+            -assume protect_parens\
+            -fpe0 -ftrapuv
+  CCFLAGS = -O0 -g -debug all -no-multibyte-chars
+else
+  FCFLAGS = -O2 -g -assume byterecl -convert big_endian
+  CCFLAGS = -O2 -no-multibyte-chars
+endif
+#==============================================================
+#
+#==============================================================
+MAKE = make
+INSTALL = install
+AR = ar
+ARFLAGS = rv
+RANLIB = ranlib
+
+MKDIR = mkdir
+MKDIRFLAGS = -p
+RM = rm
+RMFLAGS = -f
+CP = cp
+CPFLAGS = -f
+
+LD = $(FC)
+LDFLAGS = $(FCFLAGS)
+#==============================================================
+#
+#==============================================================
+TOPLIBDIR     = $(TOPSRCDIR)/lib
+LIB           = $(TOPLIBDIR)/lib.a
+LIBDIR_CONST  = $(TOPLIBDIR)/lib_const
+LIBDIR_BASE   = $(TOPLIBDIR)/lib_base
+LIBDIR_TIME   = $(TOPLIBDIR)/lib_time
+LIBDIR_LOG    = $(TOPLIBDIR)/lib_log
+LIBDIR_UTIL   = $(TOPLIBDIR)/lib_util
+LIBDIR_ARRAY  = $(TOPLIBDIR)/lib_array
+LIBDIR_IO     = $(TOPLIBDIR)/lib_io
+LIBDIR_MATH   = $(TOPLIBDIR)/lib_math
+LIBDIR_STATS  = $(TOPLIBDIR)/lib_stats
+MODDIR = $(TOPLIBDIR)/mod
+
+NCEPLIB = $(TOPSRCDIR)/NCEPLIBS-bufr-12.1.0/build/install/lib/libbufr_4.a

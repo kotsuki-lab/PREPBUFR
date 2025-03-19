@@ -1,0 +1,2781 @@
+module lib_log
+  use lib_const, only: &
+    CLEN_KEY, CLEN_VAR, CLEN_WFMT, &
+    PROCDEPTH, STDOUT, STDERR, &
+    INT1_ULIM, INT1_LLIM, &
+    INT2_ULIM, INT2_LLIM, &
+    INT4_ULIM, INT4_LLIM, &
+    INT8_ULIM, INT8_LLIM, &
+    DGT_OPT_SUM, DGT_OPT_MAX
+  use lib_base , only: &
+    lower, &
+    msg_invalid_value, &
+    msg_unexpected_condition
+  use lib_time , only: &
+    date_and_time_values, &
+    timediff
+  implicit none
+  private
+!--------------------------------------------------------------
+! Public procedures
+!--------------------------------------------------------------
+  public :: dgt_int8_0d_log  ! For comparison
+
+  public :: str
+  public :: dgt
+  public :: cl
+
+  public :: echo
+  public :: edbg
+  public :: ewrn
+  public :: eerr
+  public :: elog
+
+  public :: get_echo_indent
+!--------------------------------------------------------------
+! Public variables
+!--------------------------------------------------------------
+  public :: CODE
+!--------------------------------------------------------------
+! Interfaces
+!--------------------------------------------------------------
+  interface dgt
+    module procedure dgt_char_0d
+    module procedure dgt_int1_0d
+    module procedure dgt_int1_1d
+    module procedure dgt_int1_2d
+    module procedure dgt_int2_0d
+    module procedure dgt_int2_1d
+    module procedure dgt_int2_2d
+    module procedure dgt_int4_0d
+    module procedure dgt_int4_1d
+    module procedure dgt_int4_2d
+    module procedure dgt_int8_0d
+    module procedure dgt_int8_1d
+    module procedure dgt_int8_2d
+  end interface
+
+  interface cl
+    module procedure cl_char_0d
+    module procedure cl_char_1d
+    module procedure cl_log1_1d
+    module procedure cl_log4_1d
+    module procedure cl_int1_0d
+    module procedure cl_int1_1d
+    module procedure cl_int2_0d
+    module procedure cl_int2_1d
+    module procedure cl_int4_0d
+    module procedure cl_int4_1d
+    module procedure cl_int8_0d
+    module procedure cl_int8_1d
+    module procedure cl_real_1d
+    module procedure cl_dble_1d
+    module procedure cl_fmt_float
+  end interface
+
+  interface str
+    module procedure str_char_0d_min
+    module procedure str_char_0d_fmt_nofill
+    module procedure str_char_0d_fmt_fill
+    module procedure str_char_1d_min_nodlm
+    module procedure str_char_1d_fmt_nodlm_nofill
+    module procedure str_char_1d_fmt_dlm_nofill
+    module procedure str_char_1d_fmt_dlm_fill
+    module procedure str_log1_0d_min
+    module procedure str_log1_0d_fmt
+    module procedure str_log1_1d_min_nodlm
+    module procedure str_log1_1d_min_dlm
+    module procedure str_log1_1d_fmt_nodlm
+    module procedure str_log1_1d_fmt_dlm
+    module procedure str_log4_0d_min
+    module procedure str_log4_0d_fmt
+    module procedure str_log4_1d_min_nodlm
+    module procedure str_log4_1d_min_dlm
+    module procedure str_log4_1d_fmt_nodlm
+    module procedure str_log4_1d_fmt_dlm
+    module procedure str_int1_0d_min
+    module procedure str_int1_0d_fmt
+    module procedure str_int1_1d_min_nodlm
+    module procedure str_int1_1d_min_dlm
+    module procedure str_int1_1d_fmt_nodlm
+    module procedure str_int1_1d_fmt_dlm
+    module procedure str_int2_0d_min
+    module procedure str_int2_0d_fmt
+    module procedure str_int2_1d_min_nodlm
+    module procedure str_int2_1d_min_dlm
+    module procedure str_int2_1d_fmt_nodlm
+    module procedure str_int2_1d_fmt_dlm
+    module procedure str_int4_0d_min
+    module procedure str_int4_0d_fmt
+    module procedure str_int4_1d_min_nodlm
+    module procedure str_int4_1d_min_dlm
+    module procedure str_int4_1d_fmt_nodlm
+    module procedure str_int4_1d_fmt_dlm
+    module procedure str_int8_0d_min
+    module procedure str_int8_0d_fmt
+    module procedure str_int8_1d_min_nodlm
+    module procedure str_int8_1d_min_dlm
+    module procedure str_int8_1d_fmt_nodlm
+    module procedure str_int8_1d_fmt_dlm
+    module procedure str_real_0d_nofmt
+    module procedure str_real_0d_fmt
+    module procedure str_real_1d_nofmt_nodlm
+    module procedure str_real_1d_fmt_nodlm
+    module procedure str_real_1d_fmt_dlm
+    module procedure str_dble_0d_nofmt
+    module procedure str_dble_0d_fmt
+    module procedure str_dble_1d_nofmt_nodlm
+    module procedure str_dble_1d_fmt_nodlm
+    module procedure str_dble_1d_fmt_dlm
+  end interface
+!---------------------------------------------------------------
+! Module variables
+!---------------------------------------------------------------
+  integer, parameter :: CODE_DBG = -1
+  integer, parameter :: CODE_WRN = -98
+  integer, parameter :: CODE_ERR = -99
+  integer, parameter :: CODE_BGN = -10
+  integer, parameter :: CODE_RET = -11
+  integer, parameter :: CODE_ENT = -12
+  integer, parameter :: CODE_EXT = -13
+  integer, parameter :: CODE_SET = -21
+  integer, parameter :: CODE_STA = -22
+
+  type code_
+    integer :: DBG = CODE_DBG
+    integer :: WRN = CODE_WRN
+    integer :: ERR = CODE_ERR
+    integer :: BGN = CODE_BGN
+    integer :: RET = CODE_RET
+    integer :: ENT = CODE_ENT
+    integer :: EXT = CODE_EXT
+    integer :: SET = CODE_SET
+    integer :: STA = CODE_STA
+  end type code_
+  type(code_), save :: CODE
+
+  type time_val_
+    integer :: bgn(8)
+  end type
+
+  type log_stat_comp_
+    logical :: is_updated
+    logical :: is_recursive
+    integer :: nCommand
+    logical, pointer :: tf(:)
+  end type
+
+  type log_stat_
+    integer :: depth
+    integer :: indent
+    type(log_stat_comp_), pointer :: echoProcess(:)
+    type(log_stat_comp_), pointer :: echoContent(:)
+    type(log_stat_comp_), pointer :: echoWarning(:)
+    type(log_stat_comp_), pointer :: echoProcBar(:)
+    type(log_stat_comp_), pointer :: quitAtError(:)
+    type(log_stat_comp_), pointer :: measureTime(:)
+    integer, pointer :: indentInc(:)
+    character(CLEN_VAR), pointer :: proc(:)
+    logical, pointer :: is_proc(:)
+    type(time_val_), pointer :: time(:)
+  end type
+
+  type(log_stat_), target, save :: ls
+
+  integer, parameter :: tf_true  = 0
+  integer, parameter :: tf_false = 1
+  integer, parameter :: tf_miss = -9
+
+  integer, parameter :: indent_miss = -9999
+
+  logical, parameter :: echoProcess_default = .true.
+  logical, parameter :: echoContent_default = .true.
+  logical, parameter :: echoWarning_default = .true.
+  logical, parameter :: echoError_default   = .true.
+  logical, parameter :: echoProcBar_default = .true.
+  logical, parameter :: quitAtError_default = .true.
+  logical, parameter :: measureTime_default = .false.
+
+  integer, parameter :: STOP_CODE_ERROR = 1
+
+  character(clen_wfmt), parameter :: WFMT_REAL_DEFAULT = 'es12.5'
+!---------------------------------------------------------------
+contains
+!===============================================================
+! <Options>
+!   +p: Echo process.
+!   -p: Mute process.
+!
+!   +c: Echo contents.
+!   -c: Mute contents.
+!
+!   +w: Echo warnings.
+!   -w: Mute warnings.
+!
+!   +e: Echo error message.
+!   -e: Mute error message.
+!
+!   +a: Echo all. (exept error message)
+!   -a: Mute all. (exept error message)
+!
+!   f: Force output ignoring any settings of muting.
+!      This is active only for that message.
+!
+!   +t: Measure the time.
+!   -t: Not measure the time.
+!
+!   +x[?]: Increase indent by [?] (integer).
+!   -x[?]: Decrease indent by [?] (integer).
+!    x[?]: Set indent to [?] (integer).
+!
+!   +n: Make a new line.
+!   -n: Do not make a new line.
+!
+!   +q: Quit when error occured.
+!   -q: Not quit when error occured.
+!
+!   +b: Echo the bar.
+!   -b: Mute the bar.
+!===============================================================
+recursive subroutine echo(cd, msg, opt)
+  implicit none
+  integer     , intent(in) :: cd
+  character(*), intent(in), optional :: msg
+  character(*), intent(in), optional :: opt
+
+  character(32) :: opt_, opt1
+  integer :: tf_echoProcess
+  integer :: tf_echoContent
+  integer :: tf_echoWarning
+  integer :: tf_echoError
+  integer :: tf_echoProcBar
+  integer :: tf_quitAtError
+  integer :: tf_measureTime
+  logical :: is_echoProcess_recursive
+  logical :: is_echoContent_recursive
+  logical :: is_echoWarning_recursive
+  logical :: is_echoProcBar_recursive
+  logical :: is_quitAtError_recursive
+  logical :: is_measureTime_recursive
+  integer :: tf_forceEcho
+  integer :: tf_makeNewLine
+  integer, save :: tf_makeNewLine_prev = tf_true
+  integer :: indent, indentInc, indentDec
+
+  type(log_stat_comp_), pointer :: lsc
+  type(log_stat_comp_), pointer :: lsc_time
+  integer :: iDepth
+  character(:), allocatable :: c
+
+  integer :: ios
+
+  logical, save :: is_init = .true.
+  !-------------------------------------------------------------
+  ! Initialize
+  !-------------------------------------------------------------
+  if( is_init )then
+    is_init = .false.
+
+    ls%depth = 0
+    ls%indent = 1
+
+    allocate(ls%echoProcess(0:PROCDEPTH))
+    allocate(ls%echoContent(0:PROCDEPTH))
+    allocate(ls%echoWarning(0:PROCDEPTH))
+    allocate(ls%echoProcBar(0:PROCDEPTH))
+    allocate(ls%quitAtError(0:PROCDEPTH))
+    allocate(ls%measureTime(0:PROCDEPTH))
+
+    do iDepth = 0, PROCDEPTH
+      lsc => ls%echoProcess(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = echoProcess_default
+
+      lsc => ls%echoContent(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = echoContent_default
+
+      lsc => ls%echoWarning(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = echoWarning_default
+
+      lsc => ls%echoProcBar(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = echoProcBar_default
+
+      lsc => ls%quitAtError(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = quitAtError_default
+
+      lsc => ls%measureTime(iDepth)
+      allocate(lsc%tf(0:PROCDEPTH))
+      lsc%tf(0) = measureTime_default
+    enddo
+
+    ls%echoProcess(:)%nCommand = 0
+    ls%echoContent(:)%nCommand = 0
+    ls%echoWarning(:)%nCommand = 0
+    ls%echoProcBar(:)%nCommand = 0
+    ls%quitAtError(:)%nCommand = 0
+    ls%measureTime(:)%nCommand = 0
+
+    allocate(ls%indentInc(0:PROCDEPTH))
+    allocate(ls%proc(0:PROCDEPTH))
+    allocate(ls%is_proc(0:PROCDEPTH))
+    allocate(ls%time(0:PROCDEPTH))
+
+    ls%indentInc(:) = 0
+    ls%proc(:) = ''
+  endif
+  !-------------------------------------------------------------
+  ! Read options
+  !-------------------------------------------------------------
+  tf_echoProcess = tf_miss
+  tf_echoContent = tf_miss
+  tf_echoWarning = tf_miss
+  tf_echoError   = tf_miss
+  tf_echoProcBar = tf_miss
+  tf_quitAtError = tf_miss
+  tf_measureTime = tf_miss
+
+  is_echoProcess_recursive = .false.
+  is_echoContent_recursive = .false.
+  is_echoWarning_recursive = .false.
+  is_echoProcBar_recursive = .false.
+  is_quitAtError_recursive = .false.
+  is_measureTime_recursive = .false.
+
+  tf_forceEcho   = tf_miss
+  tf_makeNewLine = tf_miss
+
+  indent = indent_miss
+  indentInc = 0
+  indentDec = 0
+
+  if( cd == CODE_SET )then
+    opt_ = msg
+  elseif( present(opt) )then
+    opt_ = adjustl(opt)
+  else
+    opt_ = ''
+  endif
+
+  do while( len_trim(opt_) > 0 )
+    read(opt_,*) opt1
+
+    selectcase( opt1 )
+    case( '+p' )
+      tf_echoProcess = tf_true
+    case( '-p' )
+      tf_echoProcess = tf_false
+    case( '+pr' )
+      tf_echoProcess = tf_true
+      is_echoProcess_recursive = .true.
+    case( '-pr' )
+      tf_echoProcess = tf_false
+      is_echoProcess_recursive = .true.
+    case( '+c' )
+      tf_echoContent = tf_true
+    case( '-c' )
+      tf_echoContent = tf_false
+    case( '+cr' )
+      tf_echoContent = tf_true
+      is_echoContent_recursive = .true.
+    case( '-cr' )
+      tf_echoContent = tf_false
+      is_echoContent_recursive = .true.
+    case( '+w' )
+      tf_echoWarning = tf_true
+    case( '-w' )
+      tf_echoWarning = tf_false
+    case( '+wr' )
+      tf_echoWarning = tf_true
+      is_echoWarning_recursive = .true.
+    case( '-wr' )
+      tf_echoWarning = tf_false
+      is_echoWarning_recursive = .true.
+    case( '+e' )
+      tf_echoError = tf_true
+    case( '-e' )
+      tf_echoError = tf_false
+    case( '+a' )
+      tf_echoProcess = tf_true
+      tf_echoContent = tf_true
+      tf_echoWarning = tf_true
+    case( '-a' )
+      tf_echoProcess = tf_false
+      tf_echoContent = tf_false
+      tf_echoWarning = tf_false
+    case( '+ar' )
+      tf_echoProcess = tf_true
+      tf_echoContent = tf_true
+      tf_echoWarning = tf_true
+      is_echoProcess_recursive = .true.
+      is_echoContent_recursive = .true.
+      is_echoWarning_recursive = .true.
+    case( '-ar' )
+      tf_echoProcess = tf_false
+      tf_echoContent = tf_false
+      tf_echoWarning = tf_false
+      is_echoProcess_recursive = .true.
+      is_echoContent_recursive = .true.
+      is_echoWarning_recursive = .true.
+    case( '+b' )
+      tf_echoProcBar = tf_true
+    case( '-b' )
+      tf_echoProcBar = tf_false
+    case( '+br' )
+      tf_echoProcBar = tf_true
+      is_echoProcBar_recursive = .true.
+    case( '-br' )
+      tf_echoProcBar = tf_false
+      is_echoProcBar_recursive = .true.
+    case( '+q' )
+      tf_quitAtError = tf_true
+    case( '-q' )
+      tf_quitAtError = tf_false
+    case( '+qr' )
+      tf_quitAtError = tf_true
+      is_quitAtError_recursive = .true.
+    case( '-qr' )
+      tf_quitAtError = tf_false
+      is_quitAtError_recursive = .true.
+    case( '+t' )
+      tf_measureTime = tf_true
+    case( '-t' )
+      tf_measureTime = tf_false
+    case( '+tr' )
+      tf_measureTime = tf_true
+      is_measureTime_recursive = .true.
+    case( '-tr' )
+      tf_measureTime = tf_false
+      is_measureTime_recursive = .true.
+    case( 'f' )
+      tf_forceEcho = tf_true
+    case( '+n' )
+      tf_makeNewLine = tf_true
+    case( '-n' )
+      tf_makeNewLine = tf_false
+    case default
+      if( opt1(:1) == 'x' )then
+        read(opt1(2:),*,iostat=ios) indent
+      elseif( opt1(:2) == '-x' )then
+        read(opt1(3:),*,iostat=ios) indentDec
+      elseif( opt1(:2) == '+x' )then
+        read(opt1(3:),*,iostat=ios) indentInc
+      else
+        ios = 1
+      endif
+      if( ios /= 0 )then
+        call eerr('Invalid format option: '//str(opt_)//'\n'//&
+                '\n  msg: "'//str(msg)//'"'//&
+                '\n  opt: "'//str(opt)//'"')
+      endif
+    endselect
+    opt_ = adjustl(opt_(len_trim(opt1)+1:))
+  enddo
+
+  indentInc = indentInc - indentDec
+  !-------------------------------------------------------------
+  !
+  !-------------------------------------------------------------
+  selectcase( cd )
+  !-------------------------------------------------------------
+  ! Case: Unit number
+  case( 0: )
+    if( .not. present(msg) )then
+      call eerr('Output string was not specified.')
+    endif
+    !-----------------------------------------------------------
+    ! Set indent
+    !-----------------------------------------------------------
+    if( indent == indent_miss ) indent = 0
+    indent = indent + indentInc
+    !-----------------------------------------------------------
+    ! Write
+    !-----------------------------------------------------------
+    call echo_lines(msg, cd, indent, .true.)
+  !-------------------------------------------------------------
+  !
+  case( CODE_BGN, CODE_ENT )
+    !-----------------------------------------------------------
+    ! Update commands
+    !-----------------------------------------------------------
+    ls%depth = ls%depth + 1
+
+    selectcase( cd )
+    case( CODE_BGN )
+      ls%is_proc(ls%depth) = .true.
+    case( CODE_ENT )
+      ls%is_proc(ls%depth) = .false.
+    endselect
+
+    call update_commands_in(tf_echoProcess, ls%echoProcess, ls%depth, is_echoProcess_recursive)
+    call update_commands_in(tf_echoContent, ls%echoContent, ls%depth, is_echoContent_recursive)
+    call update_commands_in(tf_echoWarning, ls%echoWarning, ls%depth, is_echoWarning_recursive)
+    call update_commands_in(tf_echoProcBar, ls%echoProcBar, ls%depth, is_echoProcBar_recursive)
+    call update_commands_in(tf_quitAtError, ls%quitAtError, ls%depth, is_quitAtError_recursive)
+    call update_commands_in(tf_measureTime, ls%measureTime, ls%depth, is_measureTime_recursive)
+    !-----------------------------------------------------------
+    ! Set indent
+    !-----------------------------------------------------------
+    if( indent == indent_miss ) indent = ls%indent
+    indent = indent + indentInc
+    !-----------------------------------------------------------
+    ! Echo message
+    !-----------------------------------------------------------
+    lsc => ls%echoProcess(ls%depth)
+
+    if( lsc%tf(lsc%nCommand) )then
+      selectcase( cd )
+      case( CODE_BGN )
+        call echo_lines('[+ '//trim(msg)//']', STDOUT, indent, .true.)
+      case( CODE_ENT )
+        call echo_lines(trim(msg), STDOUT, indent, .true.)
+      endselect
+    endif
+    !-----------------------------------------------------------
+    ! Save proc name
+    !-----------------------------------------------------------
+    ls%proc(ls%depth) = msg
+    !-----------------------------------------------------------
+    ! Update indent
+    !-----------------------------------------------------------
+    ls%indentInc(ls%depth) = indentInc
+    ls%indent = ls%indent + 2 + ls%indentInc(ls%depth)
+    !-----------------------------------------------------------
+    ! Save time
+    !-----------------------------------------------------------
+    lsc_time => ls%measureTime(ls%depth)
+    if( lsc_time%tf(lsc_time%nCommand) )then
+      ls%time(ls%depth)%bgn = date_and_time_values()
+    endif
+  !-------------------------------------------------------------
+  ! Echo log
+  !-------------------------------------------------------------
+  !
+  case( CODE_RET, CODE_EXT )
+    !-----------------------------------------------------------
+    ! Update indent
+    !-----------------------------------------------------------
+    ls%indent = ls%indent - 2 - ls%indentInc(ls%depth)
+    ls%indentInc(ls%depth) = 0
+    !-----------------------------------------------------------
+    ! Echo message
+    !-----------------------------------------------------------
+    lsc => ls%echoProcess(ls%depth)
+
+    if( lsc%tf(lsc%nCommand) )then
+      selectcase( cd )
+      case( CODE_RET )
+        lsc_time => ls%measureTime(ls%depth)
+        if( lsc_time%tf(lsc_time%nCommand) )then
+          allocate(character(1) :: c)
+          c = '[- '//trim(ls%proc(ls%depth))//' ('//&
+              str(timediff(ls%time(ls%depth)%bgn, &
+                           date_and_time_values()),'f8.3')//' sec)]'
+        else
+          allocate(character(1) :: c)
+          c = '[- '//trim(ls%proc(ls%depth))//']'
+        endif
+        call echo_lines(c, STDOUT, ls%indent, .true.)
+      case( CODE_EXT )
+        continue
+      endselect
+    endif
+    !-----------------------------------------------------------
+    ! Update commands
+    !-----------------------------------------------------------
+    call update_commands_out(ls%echoProcess, ls%depth)
+    call update_commands_out(ls%echoContent, ls%depth)
+    call update_commands_out(ls%echoWarning, ls%depth)
+    call update_commands_out(ls%echoProcBar, ls%depth)
+    call update_commands_out(ls%quitAtError, ls%depth)
+    call update_commands_out(ls%measureTime, ls%depth)
+
+    ls%depth = ls%depth - 1
+  !-------------------------------------------------------------
+  !
+  case( CODE_DBG )
+    if( indent == indent_miss )then
+      indent = ls%indent + indentInc
+    endif
+
+    lsc => ls%echoContent(ls%depth)
+    if( lsc%tf(lsc%nCommand) .or. tf_forceEcho == tf_true )then
+      call echo_lines(msg, STDOUT, indent, tf_makeNewLine/=tf_false)
+    endif
+  !-------------------------------------------------------------
+  !
+  case( CODE_WRN )
+    if( indent == indent_miss ) indent = ls%indent
+    indent = indent + indentInc
+
+    lsc => ls%echoWarning(ls%depth)
+    if( lsc%tf(lsc%nCommand) .or. tf_forceEcho == tf_true )then
+      allocate(character(1) :: c)
+      c = '****** WARNING @ '//trim(ls%proc(ls%depth))//' ******'
+
+      !call update_tf_miss(tf_echoProcess, ls%echoProcess(ls%depth))
+      !call update_tf_miss(tf_echoProcBar, ls%echoProcBar(ls%depth))
+
+      if( tf_makeNewLine_prev == tf_false ) write(STDOUT,*)
+
+      !if( tf_echoProcess == tf_true )then
+      if( tf_echoProcess /= tf_false )then
+        call echo_lines(trim(c), STDOUT, indent, .true.)
+      endif
+
+      if( msg /= '' )then
+        call echo_lines(msg, STDOUT, indent, tf_makeNewLine/=tf_false)
+      endif
+
+      !if( tf_echoProcBar == tf_true )then
+      if( tf_echoProcBar /= tf_false )then
+        call echo_lines(str('', len_trim(c), '*'), STDOUT, indent, .true.)
+      endif
+    endif
+  !-------------------------------------------------------------
+  !
+  case( CODE_ERR )
+    if( indent == indent_miss ) indent = 0
+    indent = indent + indentInc
+
+    if( tf_echoError /= tf_false )then
+      allocate(character(1) :: c)
+      c = '****** ERROR @ '//trim(ls%proc(ls%depth))//' ******'
+
+      call update_tf_miss(tf_quitAtError, ls%quitAtError(ls%depth))
+
+      if( tf_makeNewLine_prev == tf_false ) write(STDOUT,*)
+
+      if( tf_echoProcess /= tf_false )then
+        call echo_lines(trim(c), STDOUT, indent, .true.)
+
+        do iDepth = ls%depth, 1, -1
+          if( ls%is_proc(iDepth) )then
+            call echo_lines('[- '//trim(ls%proc(iDepth))//']', STDOUT, indent, .true.)
+          else
+            call echo_lines('(- '//trim(ls%proc(iDepth))//')', STDOUT, indent, .true.)
+          endif
+        enddo
+      endif
+
+      if( msg /= '' )then
+        call echo_lines(msg, STDOUT, indent, .true.)
+      endif
+
+      if( tf_echoProcBar /= tf_false )then
+        call echo_lines(str('', len_trim(c), '*'), STDOUT, indent, .true.)
+      endif
+    endif
+
+    if( tf_quitAtError /= tf_false )then
+      stop STOP_CODE_ERROR
+    endif
+  !-------------------------------------------------------------
+  !
+  case( CODE_SET )
+    if( tf_forceEcho /= tf_miss )then
+      call eerr("Option 'f' is invalid for the mode 'SET'.")
+    endif
+
+    if( indent /= indent_miss )then
+      call eerr("Option 'x' is invalid for the mode 'SET'.")
+    endif
+    !-----------------------------------------------------------
+    ! Set %echoProcess
+    !-----------------------------------------------------------
+    call update_commands_in(tf_echoProcess, ls%echoProcess, ls%depth, is_echoProcess_recursive)
+    call update_commands_in(tf_echoContent, ls%echoContent, ls%depth, is_echoContent_recursive)
+    call update_commands_in(tf_echoWarning, ls%echoWarning, ls%depth, is_echoWarning_recursive)
+    call update_commands_in(tf_echoProcBar, ls%echoProcBar, ls%depth, is_echoProcBar_recursive)
+    call update_commands_in(tf_quitAtError, ls%quitAtError, ls%depth, is_quitAtError_recursive)
+    call update_commands_in(tf_measureTime, ls%measureTime, ls%depth, is_measureTime_recursive)
+    !-----------------------------------------------------------
+    ! Update indent
+    !-----------------------------------------------------------
+    ls%indent = ls%indent + indentInc
+    ls%indentInc(ls%depth) = ls%indentInc(ls%depth) + indentInc
+  !-------------------------------------------------------------
+  !
+  case default
+
+  endselect
+  !-------------------------------------------------------------
+  !
+  !-------------------------------------------------------------
+  tf_makeNewLine_prev = tf_makeNewLine
+end subroutine echo
+!===============================================================
+!
+!===============================================================
+subroutine update_commands_in(cmd, ls_comp, depth, is_recursive)
+  implicit none
+  integer             , intent(in) :: cmd
+  type(log_stat_comp_), pointer    :: ls_comp(:)
+  integer             , intent(in) :: depth
+  logical             , intent(in) :: is_recursive
+
+  integer :: iDepth
+  type(log_stat_comp_), pointer :: lsc
+
+  if( cmd == tf_miss ) return
+
+  ls_comp(depth)%is_updated = .true.
+  ls_comp(depth)%is_recursive = is_recursive
+
+  if( is_recursive )then
+    do iDepth = depth, PROCDEPTH
+      lsc => ls_comp(iDepth)
+      lsc%nCommand = lsc%nCommand + 1
+      lsc%tf(lsc%nCommand) = cmd == tf_true
+    enddo
+  else
+    lsc => ls_comp(depth)
+    lsc%nCommand = lsc%nCommand + 1
+    lsc%tf(lsc%nCommand) = cmd == tf_true
+  endif
+end subroutine update_commands_in
+!===============================================================
+!
+!===============================================================
+subroutine update_commands_out(ls_comp, depth)
+  implicit none
+  type(log_stat_comp_), pointer :: ls_comp(:)
+  integer, intent(in) :: depth
+
+  if( ls_comp(depth)%is_updated )then
+    if( ls_comp(depth)%is_recursive )then
+      ls_comp(depth:)%nCommand = ls_comp(depth:)%nCommand - 1
+    else
+      ls_comp(depth)%nCommand = ls_comp(depth)%nCommand - 1
+    endif
+
+    ls_comp(depth)%is_updated = .false.
+  endif
+end subroutine update_commands_out
+!===============================================================
+!
+!===============================================================
+subroutine echo_lines(msg, un, idt, adv)
+  implicit none
+  character(*), intent(in) :: msg
+  integer     , intent(in) :: un
+  integer     , intent(in) :: idt
+  logical     , intent(in) :: adv
+  character(len_trim(msg)) :: msg_
+  character(16) :: wfmt
+  character(4)  :: advance
+  integer :: leng
+  integer :: loc
+  !-------------------------------------------------------------
+  ! Start a new line after writing the message if $adv is true.
+  !-------------------------------------------------------------
+  if( adv )then
+    advance = 'yes'
+  else
+    advance = 'no'
+  endif
+  !-------------------------------------------------------------
+  ! Modify indent.
+  !-------------------------------------------------------------
+  if( idt == 0 )then
+    wfmt = "(a)"
+  else
+    wfmt = '('//str(idt)//'x,a)'
+  endif
+  !-------------------------------------------------------------
+  ! Write the message.
+  !-------------------------------------------------------------
+  if( index(msg,'\n') == 0 )then
+    write(un, wfmt, advance=advance) trim(msg)
+
+  else
+
+    msg_ = msg
+    leng = len_trim(msg)
+
+    do
+      loc = index(msg_,'\n')
+
+      selectcase( loc )
+
+      case( 0 )
+        write(un, wfmt, advance=advance) trim(msg_)
+        exit
+
+      case( 1 )
+        write(un, wfmt) ''
+
+      case( 2: )
+        write(un, wfmt) trim(msg_(:loc-1))
+
+      endselect
+
+      if( loc+1 == len_trim(msg_) )then
+        exit
+      else
+        msg_ = msg_(loc+2:)
+      endif
+    enddo
+
+  endif
+end subroutine echo_lines
+!==============================================================
+!
+!==============================================================
+subroutine update_tf_miss(tf, lsc)
+  implicit none
+  integer, intent(inout) :: tf
+  type(log_stat_comp_), intent(in) :: lsc
+
+  if( tf /= tf_miss ) return
+
+  if( lsc%tf(lsc%nCommand) )then
+    tf = tf_true
+  else
+    tf = tf_false
+  endif
+end subroutine update_tf_miss
+!==============================================================
+!
+!==============================================================
+subroutine edbg(msg, opt)
+  implicit none
+  character(*), intent(in) :: msg
+  character(*), intent(in), optional :: opt
+
+  if( present(opt) )then
+    call echo(CODE%DBG, msg, opt)
+  else
+    call echo(CODE%DBG, msg)
+  endif
+end subroutine edbg
+!==============================================================
+!
+!==============================================================
+subroutine ewrn(msg, opt)
+  implicit none
+  character(*), intent(in) :: msg
+  character(*), intent(in), optional :: opt
+
+  if( present(opt) )then
+    call echo(CODE%WRN, msg, opt)
+  else
+    call echo(CODE%WRN, msg)
+  endif
+end subroutine ewrn
+!==============================================================
+!
+!==============================================================
+subroutine eerr(msg, opt)
+  implicit none
+  character(*), intent(in) :: msg
+  character(*), intent(in), optional :: opt
+
+  if( present(opt) )then
+    call echo(CODE%ERR, msg, opt)
+  else
+    call echo(CODE%ERR, msg)
+  endif
+end subroutine eerr
+!==============================================================
+!
+!==============================================================
+subroutine elog(un, msg)
+  implicit none
+  integer     , intent(in) :: un
+  character(*), intent(in) :: msg
+
+  write(un, "(a)") msg
+end subroutine elog
+!==============================================================
+!
+!==============================================================
+subroutine get_echo_indent(res)
+  implicit none
+  integer, intent(out) :: res
+
+  res = ls%indent
+end subroutine get_echo_indent
+!==============================================================
+!
+!==============================================================
+!
+!
+!
+!
+!
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_char_0d(x) result(digit)
+  implicit none
+  character(*), intent(in) :: x
+
+  digit = len_trim(x)
+end function dgt_char_0d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int1_0d(x) result(digit)
+  implicit none
+  integer(1), intent(in) :: x
+
+  selectcase( x )
+  case( INT1_LLIM:    -100_1 ); digit = 4
+  case(     -99_1:     -10_1 ); digit = 3
+  case(      -9_1:      -1_1 ); digit = 2
+  case(       0_1:       9_1 ); digit = 1
+  case(      10_1:      99_1 ); digit = 2
+  case(     100_1: INT1_ULIM ); digit = 3
+  endselect
+end function dgt_int1_0d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int2_0d(x) result(digit)
+  integer(2), intent(in) :: x
+
+  selectcase( x )
+  case( INT2_LLIM: -10000_2 ); digit = 6
+  case(   -9999_2:  -1000_2 ); digit = 5
+  case(    -999_2:   -100_2 ); digit = 4
+  case(     -99_2:    -10_2 ); digit = 3
+  case(      -9_2:     -1_2 ); digit = 2
+  case(       0_2:      9_2 ); digit = 1
+  case(      10_2:     99_2 ); digit = 2
+  case(     100_2:    999_2 ); digit = 3
+  case(    1000_2:   9999_2 ); digit = 4
+  case(   10000_2:INT2_ULIM ); digit = 5
+  endselect
+end function dgt_int2_0d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int4_0d(x) result(digit)
+  implicit none
+  integer(4), intent(in) :: x
+
+  selectcase( x )
+  case( INT4_LLIM    :-1000000000_4 ); digit = 11
+  case(  -999999999_4: -100000000_4 ); digit = 10
+  case(   -99999999_4:  -10000000_4 ); digit =  9
+  case(    -9999999_4:   -1000000_4 ); digit =  8
+  case(     -999999_4:    -100000_4 ); digit =  7
+  case(      -99999_4:     -10000_4 ); digit =  6
+  case(       -9999_4:      -1000_4 ); digit =  5
+  case(        -999_4:       -100_4 ); digit =  4
+  case(         -99_4:        -10_4 ); digit =  3
+  case(          -9_4:         -1_4 ); digit =  2
+  case(           0_4:          9_4 ); digit =  1
+  case(          10_4:         99_4 ); digit =  2
+  case(         100_4:        999_4 ); digit =  3
+  case(        1000_4:       9999_4 ); digit =  4
+  case(       10000_4:      99999_4 ); digit =  5
+  case(      100000_4:     999999_4 ); digit =  6
+  case(     1000000_4:    9999999_4 ); digit =  7
+  case(    10000000_4:   99999999_4 ); digit =  8
+  case(   100000000_4:  999999999_4 ); digit =  9
+  case(  1000000000_4: INT4_ULIM    ); digit = 10
+  endselect
+end function dgt_int4_0d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int8_0d(x) result(digit)
+  implicit none
+  integer(8), intent(in) :: x
+
+  selectcase( x )
+  case( INT8_LLIM             :-1000000000000000000_8 ); digit = 20
+  case(  -999999999999999999_8: -100000000000000000_8 ); digit = 19
+  case(   -99999999999999999_8:  -10000000000000000_8 ); digit = 18
+  case(    -9999999999999999_8:   -1000000000000000_8 ); digit = 17
+  case(     -999999999999999_8:    -100000000000000_8 ); digit = 16
+  case(      -99999999999999_8:     -10000000000000_8 ); digit = 15
+  case(       -9999999999999_8:      -1000000000000_8 ); digit = 14
+  case(        -999999999999_8:       -100000000000_8 ); digit = 13
+  case(         -99999999999_8:        -10000000000_8 ); digit = 12
+  case(          -9999999999_8:         -1000000000_8 ); digit = 11
+  case(           -999999999_8:          -100000000_8 ); digit = 10
+  case(            -99999999_8:           -10000000_8 ); digit =  9
+  case(             -9999999_8:            -1000000_8 ); digit =  8
+  case(              -999999_8:             -100000_8 ); digit =  7
+  case(               -99999_8:              -10000_8 ); digit =  6
+  case(                -9999_8:               -1000_8 ); digit =  5
+  case(                 -999_8:                -100_8 ); digit =  4
+  case(                  -99_8:                 -10_8 ); digit =  3
+  case(                   -9_8:                  -1_8 ); digit =  2
+  case(                    0_8:                   9_8 ); digit =  1
+  case(                   10_8:                  99_8 ); digit =  2
+  case(                  100_8:                 999_8 ); digit =  3
+  case(                 1000_8:                9999_8 ); digit =  4
+  case(                10000_8:               99999_8 ); digit =  5
+  case(               100000_8:              999999_8 ); digit =  6
+  case(              1000000_8:             9999999_8 ); digit =  7
+  case(             10000000_8:            99999999_8 ); digit =  8
+  case(            100000000_8:           999999999_8 ); digit =  9
+  case(           1000000000_8:          9999999999_8 ); digit = 10
+  case(          10000000000_8:         99999999999_8 ); digit = 11
+  case(         100000000000_8:        999999999999_8 ); digit = 12
+  case(        1000000000000_8:       9999999999999_8 ); digit = 13
+  case(       10000000000000_8:      99999999999999_8 ); digit = 14
+  case(      100000000000000_8:     999999999999999_8 ); digit = 15
+  case(     1000000000000000_8:    9999999999999999_8 ); digit = 16
+  case(    10000000000000000_8:   99999999999999999_8 ); digit = 17
+  case(   100000000000000000_8:  999999999999999999_8 ); digit = 18
+  case(  1000000000000000000_8: INT8_ULIM             ); digit = 19
+  endselect
+end function dgt_int8_0d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int8_0d_log(x) result(digit)
+  implicit none
+  integer(8), intent(in) :: x
+
+  selectcase( x )
+  case( :-1_8 )
+    digit = int(log(dble(-x))) + 2
+  case( 0_8 )
+    digit = 0
+  case( 1_8: )
+    digit = int(log(dble(x))) + 1
+  endselect
+end function dgt_int8_0d_log
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int1_1d(x, opt) result(digit)
+  implicit none
+  integer(1)  , intent(in)           :: x(:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do i = 1, size(x)
+      digit = digit + dgt(x(i))
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int1_1d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int2_1d(x, opt) result(digit)
+  implicit none
+  integer(2)  , intent(in)           :: x(:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do i = 1, size(x)
+      digit = digit + dgt(x(i))
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int2_1d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int4_1d(x, opt) result(digit)
+  implicit none
+  integer(4)  , intent(in)           :: x(:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do i = 1, size(x)
+      digit = digit + dgt(x(i))
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int4_1d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int8_1d(x, opt) result(digit)
+  implicit none
+  integer(8)  , intent(in)           :: x(:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do i = 1, size(x)
+      digit = digit + dgt(x(i))
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int8_1d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int1_2d(x, opt) result(digit)
+  implicit none
+  integer(1)  , intent(in)           :: x(:,:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i, j
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do j = 1, size(x,2)
+      do i = 1, size(x,1)
+        digit = digit + dgt(x(i,j))
+      enddo
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int1_2d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int2_2d(x, opt) result(digit)
+  implicit none
+  integer(2)  , intent(in)           :: x(:,:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i, j
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do j = 1, size(x,2)
+      do i = 1, size(x,1)
+        digit = digit + dgt(x(i,j))
+      enddo
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int2_2d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int4_2d(x, opt) result(digit)
+  implicit none
+  integer(4)  , intent(in)           :: x(:,:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i, j
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do j = 1, size(x,2)
+      do i = 1, size(x,1)
+        digit = digit + dgt(x(i,j))
+      enddo
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int4_2d
+!===============================================================
+!
+!===============================================================
+integer pure function dgt_int8_2d(x, opt) result(digit)
+  implicit none
+  integer(8)  , intent(in)           :: x(:,:)
+  character(*), intent(in), optional :: opt
+  character(CLEN_KEY) :: opt_
+  integer(4)          :: i, j
+
+  opt_ = DGT_OPT_SUM
+  if( present(opt) ) opt_ = lower(opt)
+
+  selectcase( opt_ )
+  case( DGT_OPT_SUM )
+    digit = 0
+    do j = 1, size(x,2)
+      do i = 1, size(x,1)
+        digit = digit + dgt(x(i,j))
+      enddo
+    enddo
+  case( DGT_OPT_MAX )
+    digit = max(dgt(minval(x)), dgt(maxval(x)))
+  case default
+    digit = -1
+  endselect
+end function dgt_int8_2d
+!===============================================================
+!
+!===============================================================
+!
+!
+!
+!
+!
+!===============================================================
+!
+!===============================================================
+integer pure function cl_fmt_float(wfmt) result(l)
+  implicit none
+  character(*), intent(in) :: wfmt
+  character(CLEN_WFMT) :: wfmt_
+
+  wfmt_ = WFMT_REAL_DEFAULT
+  if( wfmt /= '' ) wfmt_ = wfmt
+
+  if( wfmt_(1:2) == 'es' )then
+    read(wfmt_(3:index(wfmt_,'.')-1),*) l
+  elseif( wfmt_(1:1) == 'e' .or. wfmt_(1:1) == 'f' )then
+    read(wfmt_(2:index(wfmt_,'.')-1),*) l
+  elseif( wfmt_(1:1) == 'b' )then
+    read(wfmt_(2:index(wfmt_,'.')-1),*) l
+  else
+    l = 0
+  endif
+end function cl_fmt_float
+!===============================================================
+!
+!===============================================================
+integer pure function cl_char_0d(x, d) result(l)
+  implicit none
+  character(*), intent(in) :: x
+  integer     , intent(in) :: d
+
+  selectcase( d )
+  case( 0 )
+    l = len_trim(x)
+  case default
+    l = abs(d)
+  endselect
+end function cl_char_0d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_char_1d(x, d, dlm) result(l)
+  implicit none
+  character(*), intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  integer :: i
+
+  selectcase( d )
+  case( 0 )
+    l = len(dlm) * (size(x)-1)
+    do i = 1, size(x)
+      l = l + len_trim(x(i))
+    enddo
+  case default
+    l = abs(d) * size(x) + len(dlm) * (size(x)-1)
+  endselect
+end function cl_char_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_log1_1d(x, digit, dlm) result(l)
+  implicit none
+  logical(1)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  l = (max(digit,1) + len(dlm)) * size(x) - len(dlm)
+end function cl_log1_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_log4_1d(x, digit, dlm) result(l)
+  implicit none
+  logical(4)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  l = (max(digit,1) + len(dlm)) * size(x) - len(dlm)
+end function cl_log4_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int1_0d(x, digit) result(l)
+  implicit none
+  integer(1), intent(in) :: x
+  integer   , intent(in) :: digit
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x)
+  case default
+    l = abs(digit)
+  endselect
+end function cl_int1_0d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int1_1d(x, digit, dlm) result(l)
+  implicit none
+  integer(1)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x) + len(dlm) * (size(x)-1)
+  case default
+    l = abs(digit) * size(x) + len(dlm) * (size(x)-1)
+  endselect
+end function cl_int1_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int2_0d(x, digit) result(l)
+  implicit none
+  integer(2), intent(in) :: x
+  integer   , intent(in) :: digit
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x)
+  case default
+    l = abs(digit)
+  endselect
+end function cl_int2_0d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int2_1d(x, digit, dlm) result(l)
+  implicit none
+  integer(2)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x) + len(dlm) * (size(x)-1)
+  case default
+    l = abs(digit) * size(x) + len(dlm) * (size(x)-1)
+  endselect
+end function cl_int2_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int4_0d(x, digit) result(l)
+  implicit none
+  integer(4), intent(in) :: x
+  integer   , intent(in) :: digit
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x)
+  case default
+    l = abs(digit)
+  endselect
+end function cl_int4_0d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int4_1d(x, digit, dlm) result(l)
+  implicit none
+  integer(4)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x) + len(dlm) * (size(x)-1)
+  case default
+    l = abs(digit) * size(x) + len(dlm) * (size(x)-1)
+  endselect
+end function cl_int4_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int8_0d(x, digit) result(l)
+  implicit none
+  integer(8), intent(in) :: x
+  integer   , intent(in) :: digit
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x)
+  case default
+    l = abs(digit)
+  endselect
+end function cl_int8_0d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_int8_1d(x, digit, dlm) result(l)
+  implicit none
+  integer(8)  , intent(in) :: x(:)
+  integer     , intent(in) :: digit
+  character(*), intent(in) :: dlm
+
+  selectcase( digit )
+  case( 0 )
+    l = dgt(x) + len(dlm) * (size(x)-1)
+  case default
+    l = abs(digit) * size(x) + len(dlm) * (size(x)-1)
+  endselect
+end function cl_int8_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_real_1d(x, fmt, dlm) result(l)
+  implicit none
+  real(4)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(*), intent(in) :: dlm
+  character(CLEN_WFMT) :: fmt_
+
+  fmt_ = WFMT_REAL_DEFAULT
+  if( fmt /= '' ) fmt_ = fmt
+
+  l = cl_fmt_float(fmt_) * size(x) + len(dlm) * (size(x)-1)
+end function cl_real_1d
+!===============================================================
+!
+!===============================================================
+integer pure function cl_dble_1d(x, fmt, dlm) result(l)
+  implicit none
+  real(8)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(*), intent(in) :: dlm
+  character(CLEN_WFMT) :: fmt_
+
+  fmt_ = WFMT_REAL_DEFAULT
+  if( fmt /= '' ) fmt_ = fmt
+
+  l = cl_fmt_float(fmt_) * size(x) + len(dlm) * (size(x)-1)
+end function cl_dble_1d
+!===============================================================
+!
+!===============================================================
+!
+!
+!
+!
+!
+!===============================================================
+!
+!===============================================================
+function str_char_0d_min(x) result(c)
+  implicit none
+  character(*), intent(in) :: x
+  character(len_trim(x)) :: c
+
+  c = x
+end function str_char_0d_min
+!===============================================================
+!
+!===============================================================
+function str_char_0d_fmt_nofill(x, d) result(c)
+  implicit none
+  character(*), intent(in) :: x
+  integer     , intent(in) :: d
+  character(cl_char_0d(x,d)) :: c
+
+  c = x
+end function str_char_0d_fmt_nofill
+!===============================================================
+!
+!===============================================================
+function str_char_0d_fmt_fill(x, d, fill) result(c)
+  implicit none
+  character(*), intent(in) :: x
+  integer     , intent(in) :: d
+  character(*), intent(in) :: fill
+  character(cl_char_0d(x,d)) :: c
+
+  integer :: len_fill
+  integer :: len_x
+  integer :: i0
+
+  len_fill = len(fill)
+
+  selectcase( d )
+  case( 0 )
+    continue
+  case( 1: )
+    c = x
+    i0 = len(x)
+    do while( i0+1 < d+1 )
+      c(i0+1:min(i0+len_fill,d)) = fill
+      i0 = i0 + len_fill
+    enddo
+  case( :-1 )
+    len_x = len(x)
+    i0 = 0
+    do while( i0+1 < -d-len_x+1 )
+      c(i0+1:i0+len_fill) = fill
+      i0 = i0 + len_fill
+    enddo
+    c(-d-len_x+1:) = x
+  endselect
+end function str_char_0d_fmt_fill
+!===============================================================
+!
+!===============================================================
+function str_char_1d_min_nodlm(x) result(c)
+  implicit none
+  character(*), intent(in) :: x(:)
+  character(cl_char_1d(x,0,' ')) :: c
+
+  integer :: i
+  integer :: l0
+  integer :: d
+
+  c = ''
+  l0 = 0
+  do i = 1, size(x)
+    d = len_trim(x(i))
+    c(l0+1:l0+d) = x(i)
+    l0 = l0 + d + 1
+  enddo
+end function str_char_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_char_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  character(*), intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_char_1d(x,0,dlm)) :: c
+
+  integer :: i
+  integer :: l0
+  integer :: len_dlm
+  integer :: len_x
+
+  len_dlm = len(dlm)
+
+  l0 = 0
+  do i = 1, size(x)
+    if( i > 1 ) c(l0-len_dlm+1:l0) = dlm
+    len_x = len_trim(x(i))
+    c(l0+1:l0+len_x) = x(i)
+    l0 = l0 + len_x + len_dlm
+  enddo
+end function str_char_1d_min_dlm
+!===============================================================
+! d = 0: call str_char_1d_min_nodlm
+!   > 0: Left-aligned, divided by ' '
+!   < 0: Right-aligned, divided by ' '
+!===============================================================
+function str_char_1d_fmt_nodlm_nofill(x, d) result(c)
+  implicit none
+  character(*), intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(cl_char_1d(x,d,' ')) :: c
+
+  integer :: i
+  integer :: l0
+
+  selectcase( d )
+  case( 0 )
+    c = str_char_1d_min_nodlm(x)
+  case( 1: )
+    c = ''
+    l0 = 0
+    do i = 1, size(x)
+      c(l0+1:l0+d) = x(i)
+      l0 = l0 + d + 1
+    enddo
+  case( :-1 )
+    c = ''
+    l0 = 0
+    do i = 1, size(x)
+      c(l0+max(0,-d-len_trim(x(i)))+1:l0-d) = x(i)
+      l0 = l0 - d + 1
+    enddo
+  endselect
+end function str_char_1d_fmt_nodlm_nofill
+!===============================================================
+! d = 0: call str_char_1d_min_dlm
+!   > 0: Left-aligned, divided by $dlm
+!   < 0: Right-aligned, divided by $dlm
+!===============================================================
+function str_char_1d_fmt_dlm_nofill(x, d, dlm) result(c)
+  implicit none
+  character(*), intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_char_1d(x,d,dlm)) :: c
+
+  integer :: i
+  integer :: l0
+  integer :: len_dlm
+
+  len_dlm = len(dlm)
+
+  selectcase( d )
+  case( 0 )
+    c = str_char_1d_min_dlm(x, dlm)
+  case( 1: )
+    c = ''
+    l0 = 0
+    do i = 1, size(x)
+      if( i > 1 ) c(l0-len_dlm+1:l0) = dlm
+      c(l0+1:l0+d) = x(i)
+      l0 = l0 + d + len_dlm
+    enddo
+  case( :-1 )
+    c = ''
+    l0 = 0
+    do i = 1, size(x)
+      if( i > 1 ) c(l0-len_dlm+1:l0) = dlm
+      c(l0+max(0,-d-len_trim(x(i)))+1:l0-d) = x(i)
+      l0 = l0 - d + len_dlm
+    enddo
+  endselect
+end function str_char_1d_fmt_dlm_nofill
+!===============================================================
+! d = 0: call str_char_1d_min_dlm
+!   > 0: Left-aligned, divided by $dlm, spaces are filled by $fill
+!   < 0: Right-aligned, divided by $dlm, spaces are filled by $fill
+!===============================================================
+function str_char_1d_fmt_dlm_fill(x, d, dlm, fill) result(c)
+  implicit none
+  character(*), intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(*), intent(in) :: fill
+  character(cl_char_1d(x,d,dlm)) :: c
+
+  integer :: i
+  integer :: l0, l1
+  integer :: len_c, len_dlm, len_fill
+  integer :: len_x
+
+  len_c = len(c)
+  len_dlm = len(dlm)
+  len_fill = len(fill)
+
+  selectcase( d )
+  case( 0 )
+  case( 1: )
+    l0 = 0
+    do i = 1, size(x)
+      if( i > 1 ) c(l0-len_dlm+1:l0) = dlm
+
+      len_x = len_trim(x(i))
+      if( len_x < d )then
+        c(l0+1:l0+len_x) = x(i)
+        l1 = l0 + d
+        l0 = l0 + len_x
+        do while( l0 < l1 )
+          c(l0+1:min(l0+len_fill,l1)) = fill
+          l0 = l0 + len_fill
+        enddo
+        l0 = l1
+      else
+        c(l0+1:l0+d) = x(i)
+        l0 = l0 + d
+      endif
+
+      l0 = l0 + len_dlm
+    enddo  ! i/
+  case( :-1 )
+    l0 = 0
+    do i = 1, size(x)
+      if( i > 1 ) c(l0-len_dlm+1:l0) = dlm
+
+      len_x = len_trim(x(i))
+      if( len_x < -d )then
+        l1 = l0 - d
+        do while( l0 < l1 )
+          c(l0+1:min(l0+len_fill,l1)) = fill
+          l0 = l0 + len_fill
+        enddo
+        c(l1-len_x+1:l1) = x(i)
+        l0 = l1
+      else
+        c(l0+1:l0-d) = x(i)
+        l0 = l0 - d
+      endif
+
+      l0 = l0 + len_dlm
+    enddo  ! i/
+  endselect
+end function str_char_1d_fmt_dlm_fill
+!===============================================================
+!
+!===============================================================
+function str_log1_0d_min(x) result(c)
+  implicit none
+  logical(1), intent(in) :: x
+  character(1)           :: c
+
+  write(c,"(l1)") x
+end function str_log1_0d_min
+!===============================================================
+!
+!===============================================================
+function str_log1_0d_fmt(x, d) result(c)
+  implicit none
+  logical(1), intent(in) :: x
+  integer   , intent(in) :: d
+  character(max(1,d))    :: c
+
+  write(c,"(l"//str(max(1,d))//")") x
+end function str_log1_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_log1_1d_min_nodlm(x) result(c)
+  implicit none
+  logical(1), intent(in) :: x(:)
+  character(cl_log1_1d(x,0,' ')) :: c
+
+  write(c,"(l1,"//str(size(x)-1)//"(1x,l1))") x
+end function str_log1_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_log1_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  logical(1)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_log1_1d(x,0,dlm)) :: c
+
+  write(c,"(l1,"//str(size(x)-1)//"('"//dlm//"',l1))") x
+end function str_log1_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_log1_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  logical(1), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_log1_1d(x,d,' ')) :: c
+
+  write(c,"(l"//str(max(d,1))//","//str(size(x)-1)//"(1x,l"//str(max(d,1))//"))") x
+end function str_log1_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_log1_1d_fmt_dlm(x,d,dlm) result(c)
+  implicit none
+  logical(1)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_log1_1d(x,d,dlm)) :: c
+
+  write(c,"(l"//str(max(d,1))//","//str(size(x)-1)//"('"//dlm//"',l"//str(max(d,1))//"))") x
+end function str_log1_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_log4_0d_min(x) result(c)
+  implicit none
+  logical(4), intent(in) :: x
+  character(1)           :: c
+
+  write(c,"(l1)") x
+end function str_log4_0d_min
+!===============================================================
+!
+!===============================================================
+function str_log4_0d_fmt(x, d) result(c)
+  implicit none
+  logical(4), intent(in) :: x
+  integer   , intent(in) :: d
+  character(max(1,d))    :: c
+
+  write(c,"(l"//str(max(1,d))//")") x
+end function str_log4_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_log4_1d_min_nodlm(x) result(c)
+  implicit none
+  logical(4), intent(in) :: x(:)
+  character(cl_log4_1d(x,0,' ')) :: c
+
+  write(c,"(l1,"//str(size(x)-1)//"(1x,l1))") x
+end function str_log4_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_log4_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  logical(4)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_log4_1d(x,0,dlm)) :: c
+
+  write(c,"(l1,"//str(size(x)-1)//"('"//dlm//"',l1))") x
+end function str_log4_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_log4_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  logical(4), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_log4_1d(x,d,' ')) :: c
+
+  write(c,"(l"//str(max(d,1))//","//str(size(x)-1)//"(1x,l"//str(max(d,1))//"))") x
+end function str_log4_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_log4_1d_fmt_dlm(x,d,dlm) result(c)
+  implicit none
+  logical(4)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_log4_1d(x,d,dlm)) :: c
+
+  write(c,"(l"//str(max(d,1))//","//str(size(x)-1)//"('"//dlm//"',l"//str(max(d,1))//"))") x
+end function str_log4_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_int1_0d_min(x) result(c)
+  implicit none
+  integer(1), intent(in) :: x
+  character(dgt(x))      :: c
+
+  write(c,"(i0)") x
+end function str_int1_0d_min
+!===============================================================
+!
+!===============================================================
+function str_int1_0d_fmt(x, d) result(c)
+  implicit none
+  integer(1)  , intent(in)  :: x
+  integer     , intent(in)  :: d
+  character(cl_int1_0d(x,d)) :: c
+  character(128) :: c_dgt
+  integer :: i
+
+  selectcase( d )
+  case( 0 )
+    write(c,"(i0)") x
+  case( 1: )
+    if( dgt(x) > d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      write(c,"(i"//str(d)//")") x
+    endif
+  case( :-1 )
+    if( dgt(x) > -d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      if( x >= 0 )then
+        write(c_dgt,"(i0)") -d
+        write(c,"(i"//trim(c_dgt)//"."//trim(c_dgt)//")") x
+      else
+        write(c_dgt,"(i0)") -d-1
+        write(c,"('-',i"//trim(c_dgt)//"."//trim(c_dgt)//")") -x
+      endif
+    endif
+  endselect
+end function str_int1_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_int1_1d_min_nodlm(x) result(c)
+  implicit none
+  integer(1), intent(in) :: x(:)
+  character(cl_int1_1d(x,0,' ')) :: c
+  integer :: l, ll
+  integer :: i
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int1_1d_min_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    write(c,"(i0)") x(1)
+  case( 2: )
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + 1 + dgt(x(i))
+      write(c(l+2:ll),"(i0)") x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int1_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int1_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  integer(1)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_int1_1d(x,0,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int1_1d_min_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1))
+  case( 2: )
+    l_dlm = len(dlm)
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + l_dlm + dgt(x(i))
+      write(c(l+1:ll),"(a,i0)") dlm, x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int1_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_int1_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  integer(1), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_int1_1d(x,d,' ')) :: c
+  integer :: i
+  integer :: l, ll
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int1_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc), '-p')
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case default
+    if( d == 0 )then
+      c = str(x)
+    else
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + 1 + abs(d)
+        c(l+1:ll) = ' '//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int1_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int1_1d_fmt_dlm(x, d, dlm) result(c)
+  implicit none
+  integer(1)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_int1_1d(x,d,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int1_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case( 2: )
+    if( d == 0 )then
+      c = str(x, dlm)
+    else
+      l_dlm = len(dlm)
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + l_dlm + abs(d)
+        c(l+1:ll) = dlm//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int1_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_int2_0d_min(x) result(c)
+  implicit none
+  integer(2), intent(in) :: x
+  character(dgt(x))      :: c
+
+  write(c,"(i0)") x
+end function str_int2_0d_min
+!===============================================================
+!
+!===============================================================
+function str_int2_0d_fmt(x, d) result(c)
+  implicit none
+  integer(2)  , intent(in)  :: x
+  integer     , intent(in)  :: d
+  character(cl_int2_0d(x,d)) :: c
+  character(128) :: c_dgt
+  integer :: i
+
+  selectcase( d )
+  case( 0 )
+    write(c,"(i0)") x
+  case( 1: )
+    if( dgt(x) > d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      write(c,"(i"//str(d)//")") x
+    endif
+  case( :-1 )
+    if( dgt(x) > -d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      if( x >= 0 )then
+        write(c_dgt,"(i0)") -d
+        write(c,"(i"//trim(c_dgt)//"."//trim(c_dgt)//")") x
+      else
+        write(c_dgt,"(i0)") -d-1
+        write(c,"('-',i"//trim(c_dgt)//"."//trim(c_dgt)//")") -x
+      endif
+    endif
+  endselect
+end function str_int2_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_int2_1d_min_nodlm(x) result(c)
+  implicit none
+  integer(2), intent(in) :: x(:)
+  character(cl_int2_1d(x,0,' ')) :: c
+  integer :: l, ll
+  integer :: i
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int2_1d_min_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    write(c,"(i0)") x(1)
+  case( 2: )
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + 1 + dgt(x(i))
+      write(c(l+2:ll),"(i0)") x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int2_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int2_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  integer(2)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_int2_1d(x,0,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int2_1d_min_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1))
+  case( 2: )
+    l_dlm = len(dlm)
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + l_dlm + dgt(x(i))
+      write(c(l+1:ll),"(a,i0)") dlm, x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int2_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_int2_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  integer(2), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_int2_1d(x,d,' ')) :: c
+  integer :: i
+  integer :: l, ll
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int2_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case default
+    if( d == 0 )then
+      c = str(x)
+    else
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + 1 + abs(d)
+        c(l+1:ll) = ' '//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int2_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int2_1d_fmt_dlm(x, d, dlm) result(c)
+  implicit none
+  integer(2)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_int2_1d(x,d,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int2_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case( 2: )
+    if( d == 0 )then
+      c = str(x, dlm)
+    else
+      l_dlm = len(dlm)
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + l_dlm + abs(d)
+        c(l+1:ll) = dlm//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int2_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_int4_0d_min(x) result(c)
+  implicit none
+  integer(4), intent(in) :: x
+  character(dgt(x))      :: c
+
+  write(c,"(i0)") x
+end function str_int4_0d_min
+!===============================================================
+!
+!===============================================================
+function str_int4_0d_fmt(x, d) result(c)
+  implicit none
+  integer(4)  , intent(in)  :: x
+  integer     , intent(in)  :: d
+  character(cl_int4_0d(x,d)) :: c
+  character(128) :: c_dgt
+  integer :: i
+
+  selectcase( d )
+  case( 0 )
+    write(c,"(i0)") x
+  case( 1: )
+    if( dgt(x) > d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      write(c,"(i"//str(d)//")") x
+    endif
+  case( :-1 )
+    if( dgt(x) > -d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      if( x >= 0 )then
+        write(c_dgt,"(i0)") -d
+        write(c,"(i"//trim(c_dgt)//"."//trim(c_dgt)//")") x
+      else
+        write(c_dgt,"(i0)") -d-1
+        write(c,"('-',i"//trim(c_dgt)//"."//trim(c_dgt)//")") -x
+      endif
+    endif
+  endselect
+end function str_int4_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_int4_1d_min_nodlm(x) result(c)
+  implicit none
+  integer(4), intent(in) :: x(:)
+  character(cl_int4_1d(x,0,' ')) :: c
+  integer :: l, ll
+  integer :: i
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int4_1d_min_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    write(c,"(i0)") x(1)
+  case( 2: )
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + 1 + dgt(x(i))
+      write(c(l+2:ll),"(i0)") x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int4_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int4_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  integer(4)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_int4_1d(x,0,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int4_1d_min_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1))
+  case( 2: )
+    l_dlm = len(dlm)
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + l_dlm + dgt(x(i))
+      write(c(l+1:ll),"(a,i0)") dlm, x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int4_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_int4_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  integer(4), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_int4_1d(x,d,' ')) :: c
+  integer :: i
+  integer :: l, ll
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int4_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case default
+    if( d == 0 )then
+      c = str(x)
+    else
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + 1 + abs(d)
+        c(l+1:ll) = ' '//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int4_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int4_1d_fmt_dlm(x, d, dlm) result(c)
+  implicit none
+  integer(4)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_int4_1d(x,d,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int4_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case( 2: )
+    if( d == 0 )then
+      c = str(x, dlm)
+    else
+      l_dlm = len(dlm)
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + l_dlm + abs(d)
+        c(l+1:ll) = dlm//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int4_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_int8_0d_min(x) result(c)
+  implicit none
+  integer(8), intent(in) :: x
+  character(dgt(x))      :: c
+
+  write(c,"(i0)") x
+end function str_int8_0d_min
+!===============================================================
+!
+!===============================================================
+function str_int8_0d_fmt(x, d) result(c)
+  implicit none
+  integer(8)  , intent(in)  :: x
+  integer     , intent(in)  :: d
+  character(cl_int8_0d(x,d)) :: c
+  character(128) :: c_dgt
+  integer :: i
+
+  selectcase( d )
+  case( 0 )
+    write(c,"(i0)") x
+  case( 1: )
+    if( dgt(x) > d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      write(c,"(i"//str(d)//")") x
+    endif
+  case( :-1 )
+    if( dgt(x) > -d )then
+      do i = 1, len(c)
+        c(i:i) = '*'
+      enddo
+    else
+      if( x >= 0 )then
+        write(c_dgt,"(i0)") -d
+        write(c,"(i"//trim(c_dgt)//"."//trim(c_dgt)//")") x
+      else
+        write(c_dgt,"(i0)") -d-1
+        write(c,"('-',i"//trim(c_dgt)//"."//trim(c_dgt)//")") -x
+      endif
+    endif
+  endselect
+end function str_int8_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_int8_1d_min_nodlm(x) result(c)
+  implicit none
+  integer(8), intent(in) :: x(:)
+  character(cl_int8_1d(x,0,' ')) :: c
+  integer :: l, ll
+  integer :: i
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int8_1d_min_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    write(c,"(i0)") x(1)
+  case( 2: )
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + 1 + dgt(x(i))
+      write(c(l+2:ll),"(i0)") x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int8_1d_min_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int8_1d_min_dlm(x, dlm) result(c)
+  implicit none
+  integer(8)  , intent(in) :: x(:)
+  character(*), intent(in) :: dlm
+  character(cl_int8_1d(x,0,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int8_1d_min_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1))
+  case( 2: )
+    l_dlm = len(dlm)
+    c = ''
+    l = dgt(x(1))
+    write(c(1:l),"(i0)") x(1)
+    do i = 2, size(x)
+      ll = l + l_dlm + dgt(x(i))
+      write(c(l+1:ll),"(a,i0)") dlm, x(i)
+      l = ll
+    enddo
+  endselect
+end function str_int8_1d_min_dlm
+!===============================================================
+!
+!===============================================================
+function str_int8_1d_fmt_nodlm(x, d) result(c)
+  implicit none
+  integer(8), intent(in) :: x(:)
+  integer   , intent(in) :: d
+  character(cl_int8_1d(x,d,' ')) :: c
+  integer :: i
+  integer :: l, ll
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int8_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case default
+    if( d == 0 )then
+      c = str(x)
+    else
+      c(1:abs(d)) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + 1 + abs(d)
+        c(l+1:ll) = ' '//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int8_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_int8_1d_fmt_dlm(x, d, dlm) result(c)
+  implicit none
+  integer(8)  , intent(in) :: x(:)
+  integer     , intent(in) :: d
+  character(*), intent(in) :: dlm
+  character(cl_int8_1d(x,d,dlm)) :: c
+  integer :: i
+  integer :: l, ll, l_dlm
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_int8_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str(x(1), d)
+  case( 2: )
+    if( d == 0 )then
+      c = str(x, dlm)
+    else
+      l_dlm = len(dlm)
+      c(1:d) = str(x(1),d)
+      l = abs(d)
+      do i = 2, size(x)
+        ll = l + l_dlm + abs(d)
+        c(l+1:ll) = dlm//str(x(i),d)
+        l = ll
+      enddo
+    endif
+  endselect
+end function str_int8_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_real_0d_nofmt(x) result(c)
+  implicit none
+  real(4), intent(in) :: x
+  character(cl_fmt_float('')) :: c
+
+  write(c,'('//trim(WFMT_REAL_DEFAULT)//')') x
+end function str_real_0d_nofmt
+!===============================================================
+!
+!===============================================================
+function str_real_0d_fmt(x, fmt) result(c)
+  implicit none
+  real(4)     , intent(in) :: x
+  character(*), intent(in) :: fmt
+  character(cl_fmt_float(fmt)) :: c
+
+  write(c,'('//trim(fmt)//')') x
+end function str_real_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_real_1d_nofmt_nodlm(x) result(c)
+  implicit none
+  real(4), intent(in) :: x(:)
+  character(cl_real_1d(x,'',' ')) :: c
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_real_1d_nofmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_real_0d_nofmt(x(1))
+  case( 2: )
+    write(wfmt,"('(',a,',',i0,'(1x,',a,'))')") &
+          WFMT_REAL_DEFAULT, size(x)-1, WFMT_REAL_DEFAULT
+    write(c,wfmt) x
+  endselect
+end function str_real_1d_nofmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_real_1d_fmt_nodlm(x, fmt) result(c)
+  implicit none
+  real(4)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(cl_real_1d(x,fmt,' ')) :: c
+  character(CLEN_WFMT) :: fmt_
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_real_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_real_0d_fmt(x(1), fmt)
+  case( 2: )
+    fmt_ = WFMT_REAL_DEFAULT
+    if( fmt /= '' ) fmt_ = fmt
+    write(wfmt,"('(',a,',',i0,'(1x,',a,'))')") &
+          trim(fmt_), size(x)-1, trim(fmt_)
+    write(c,wfmt) x
+  endselect
+end function str_real_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_real_1d_fmt_dlm(x, fmt, dlm) result(c)
+  implicit none
+  real(4)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(*), intent(in) :: dlm
+  character(cl_real_1d(x,fmt,dlm)) :: c
+  character(CLEN_WFMT) :: fmt_
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_real_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( 0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_real_0d_fmt(x(1), fmt)
+  case( 2: )
+    fmt_ = WFMT_REAL_DEFAULT
+    if( fmt /= '' ) fmt_ = fmt
+    write(wfmt,"('(',a,',',i0,'(',a,',',a,'))')") &
+          trim(fmt_), size(x)-1, "'"//dlm//"'", trim(fmt_)
+    write(c,wfmt) x
+  endselect
+end function str_real_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+function str_dble_0d_nofmt(x) result(c)
+  implicit none
+  real(8), intent(in) :: x
+  character(cl_fmt_float('')) :: c
+
+  write(c,'('//trim(WFMT_REAL_DEFAULT)//')') x
+end function str_dble_0d_nofmt
+!===============================================================
+!
+!===============================================================
+function str_dble_0d_fmt(x, fmt) result(c)
+  implicit none
+  real(8)     , intent(in) :: x
+  character(*), intent(in) :: fmt
+  character(cl_fmt_float(fmt)) :: c
+
+  write(c,'('//trim(fmt)//')') x
+end function str_dble_0d_fmt
+!===============================================================
+!
+!===============================================================
+function str_dble_1d_nofmt_nodlm(x) result(c)
+  implicit none
+  real(8), intent(in) :: x(:)
+  character(cl_dble_1d(x,'',' ')) :: c
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_dble_1d_nofmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_dble_0d_nofmt(x(1))
+  case( 2: )
+    write(wfmt,"('(',a,',',i0,'(1x,',a,'))')") &
+          trim(WFMT_REAL_DEFAULT), size(x)-1, trim(WFMT_REAL_DEFAULT)
+    write(c,wfmt) x
+  endselect
+end function str_dble_1d_nofmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_dble_1d_fmt_nodlm(x, fmt) result(c)
+  implicit none
+  real(8)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(cl_dble_1d(x,fmt,' ')) :: c
+  character(CLEN_WFMT) :: fmt_
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_real_1d_fmt_nodlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_dble_0d_fmt(x(1), fmt)
+  case( 2: )
+    fmt_ = WFMT_REAL_DEFAULT
+    if( fmt /= '' ) fmt_ = fmt
+    write(wfmt,"('(',a,',',i0,'(1x,',a,'))')") &
+          trim(fmt_), size(x)-1, trim(fmt_)
+    write(c,wfmt) x
+  endselect
+end function str_dble_1d_fmt_nodlm
+!===============================================================
+!
+!===============================================================
+function str_dble_1d_fmt_dlm(x, fmt, dlm) result(c)
+  implicit none
+  real(8)     , intent(in) :: x(:)
+  character(*), intent(in) :: fmt
+  character(*), intent(in) :: dlm
+  character(cl_dble_1d(x,fmt,dlm)) :: c
+  character(CLEN_WFMT) :: fmt_
+  character(CLEN_WFMT) :: wfmt
+  character(CLEN_VAR), parameter :: proc = 'str__mp__str_dble_1d_fmt_dlm'
+
+  selectcase( size(x) )
+  case( :0 )
+    call echo(CODE%BGN, trim(proc))
+    call eerr('Size of array is invalid.')
+    call echo(CODE%RET)
+  case( 1 )
+    c = str_dble_0d_fmt(x(1), fmt)
+  case( 2: )
+    fmt_ = WFMT_REAL_DEFAULT
+    if( fmt /= '' ) fmt_ = fmt
+    write(wfmt,"('(',a,',',i0,'(',a,',',a,'))')") &
+          trim(fmt_), size(x)-1, "'"//dlm//"'", trim(fmt_)
+    write(c,wfmt) x
+  endselect
+end function str_dble_1d_fmt_dlm
+!===============================================================
+!
+!===============================================================
+end module lib_log
