@@ -12,7 +12,7 @@ RUNNAME="dnst1_sfc1_Tv12_n0"
 if [ $# -eq 2 ]; then
   IY=`echo $(( 10#$1 ))`
   IM=`echo $(( 10#$2 ))`
-  ID=`echo $(( 10#$3 ))`
+  ID=1
   EY=$IY
   EM=$IM
   ED=`get_dymax $IY $IM`
@@ -97,7 +97,7 @@ while test $IY$IM$ID$IH -le $EY$EM$ED$EH; do
   cat << EOF > $F_CONF
 &nml_time
   datetime = $DATETIME,
-  tout_back = $TOUT_BHD, tout_frnt = $TOUT_AHD,
+  tout_bhd = $TOUT_BHD, tout_ahd = $TOUT_AHD,
 /
 
 &nml_file
@@ -161,7 +161,7 @@ while test $IY$IM$ID$IH -le $EY$EM$ED$EH; do
   monit_itr_sct_rec = .false.,
   monit_itr_add_rec = .false.,
   save_modif = .false.,
-  save_monit = .true.,
+  save_monit = .false.,
   dir_monit = "$MNTDIR/$DATETIME",
 /
 
