@@ -1,13 +1,11 @@
 # 1 Contents
 ## 1-1 Software
 <dl>
-	<dt>PREPBUFR_v02/</dt>
+	<dt>PREPBUFR_v03.01.01/</dt>
 	<dd>
 Programs and scripts for decoding and observation thinning of PREPBUFR.
 	</dd>
 </dl>
-
-DOI: [10.5281/zenodo.15029781](https://doi.org/10.5281/zenodo.15029781)
 
 ## 1-2 Related resource
 <dl>
