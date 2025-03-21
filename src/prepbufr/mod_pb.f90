@@ -243,16 +243,19 @@ subroutine dump_prepbufr(&
       call ufbint(un_pb, pcd, npcd, MXLV, nlev, pcstr)
       call ufbint(un_pb, rcd, nrcd, MXLV, nlev, rcstr)
 
-      sid = transfer(hdr(1),sid)
-
-      do while( index(sid,'/') /= 0 )
-        ic = index(sid,'/')
-        sid(ic:ic) = '-'
-      enddo
-      do while( index(trim(sid),' ') /= 0 )
-        ic = index(sid,' ')
-        sid(ic:ic) = '_'
-      enddo
+      if( hdr(1) == PREPBUFR_MISS )then
+        sid = PREPBUFR_SID_MISS
+      else
+        sid = transfer(hdr(1),sid)
+        do while( index(sid,'/') /= 0 )
+          ic = index(sid,'/')
+          sid(ic:ic) = '-'
+        enddo
+        do while( index(trim(sid),' ') /= 0 )
+          ic = index(sid,' ')
+          sid(ic:ic) = '_'
+        enddo
+      endif
 
       write(un_data(imsgtyp),wfmt_hdr) &
             'isub=', isub, 'nlev=', nlev, 'SID=', sid, &

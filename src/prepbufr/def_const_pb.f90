@@ -43,6 +43,7 @@ module def_const_pb
 
   real(8), parameter :: PREPBUFR_MISS = 1d11
   integer, parameter :: PREPBUFR_MISS_INT = -9999
+  character(CLEN_SID), parameter :: PREPBUFR_SID_MISS = '__MISS__'
 
   integer, parameter :: MXLV = 250
 

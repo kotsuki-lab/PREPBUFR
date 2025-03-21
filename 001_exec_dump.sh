@@ -8,7 +8,7 @@
 #pwd
 . ./000_func_calendar.sh
 
-DIR_PREPBUFR="../../data_prepbufr/unzip"
+DIR_PREPBUFR="../data_prepbufr/unzip"
 
 if [ $# -eq 2 ]; then
   IY=`echo $(( 10#$1 ))`
