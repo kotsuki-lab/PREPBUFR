@@ -1059,6 +1059,8 @@ subroutine copy_pb_org(pb0, pb, order, geo, monit)
   type(sub_), pointer :: sub
   type(rec_), pointer :: rec
   integer :: imsg, isub, irec
+  integer :: imsg_prev, isub_prev
+  logical :: is_first
   integer :: ivar
   integer :: time1, time2
 
@@ -1096,6 +1098,9 @@ subroutine copy_pb_org(pb0, pb, order, geo, monit)
 
     msg%typ = msg0%typ
     msg%nsub = msg0%nsub
+
+    if( msg%nsub == 0 ) cycle
+
     allocate(msg%sub(msg%nsub))
     !-----------------------------------------------------------
     ! Copy and process subset data
@@ -1204,24 +1209,20 @@ subroutine copy_pb_org(pb0, pb, order, geo, monit)
     call copy(TYP_WIND_ALL, lst_typ_wind)
   endselect
 
-  imsg = 0
-  isub = 0
-  do
-    !-----------------------------------------------------------
-    if( imsg == 0 .and. isub == 0 )then
-      nullify(sub_prev)
-      imsg = 1
-      isub = 1
+  is_first = .true.
+  imsg_prev = 0
+  isub_prev = 0
+  nullify(sub_prev)
+  do imsg = 1, pb%nmsg
+  do isub = 1, pb%msg(imsg)%nsub
+    if( is_first )then
+      is_first = .false.
     else
-      sub_prev => pb%msg(imsg)%sub(isub)
-      if( isub == pb%msg(imsg)%nsub )then
-        imsg = imsg + 1
-        isub = 1
-      else
-        isub = isub + 1
-      endif
+      sub_prev => pb%msg(imsg_prev)%sub(isub_prev)
     endif
-    if( imsg > pb%nmsg ) exit
+    imsg_prev = imsg
+    isub_prev = isub
+
     sub => pb%msg(imsg)%sub(isub)
     !-----------------------------------------------------------
     ! Get report type
@@ -1327,6 +1328,7 @@ subroutine copy_pb_org(pb0, pb, order, geo, monit)
     endif
     !-----------------------------------------------------------
   enddo  ! sub, msg/
+  enddo
 
   nullify(sub_prev)
 
@@ -1641,6 +1643,7 @@ subroutine conv_Tv(pb, pb0, opt_Tv, monit)
         ! Case: Temp. is not Tv (INFO=2)
         elseif( pb0%msg(imsg)%sub(isub)%rec(irec)%pcd(vidx_T) /= PCD_TV )then
           call add(n_not_Tv)
+          call add(n_ok)
           info = 2
         endif
         !-------------------------------------------------------
@@ -1726,10 +1729,10 @@ subroutine conv_Tv(pb, pb0, opt_Tv, monit)
   endif
   call report_n(  'all        ')
   if( n_all > 0 )then
-    call report_n('OK         ', n_ok    )
+    call report_n('OK         ', n_ok       )
+    call report_n('  not_Tv   ', n_not_Tv   )
     call report_n('NG         ', n_all-n_ok )
     call report_n('  Tobs_miss', n_Tobs_miss)
-    call report_n('  not_Tv   ', n_not_Tv   )
     call report_n('  Qobs_miss', n_Qobs_miss)
   endif
 
