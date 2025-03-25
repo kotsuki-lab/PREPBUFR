@@ -786,6 +786,18 @@ subroutine set_geo(geo)
 
   call echo(code%bgn, 'set_geo', '-p -x2')
   !-------------------------------------------------------------
+  !
+  !-------------------------------------------------------------
+  if( geo%nlon == 0 .and. geo%nlat == 0 )then
+    call echo(code%ret)
+    return
+  elseif( geo%nlon == 0 .neqv. geo%nlat == 0 )then
+    call eerr('Invalid input. Only one of "nlon" and "nlat"'//&
+              ' was given in namelist "nml_geo".')
+  endif
+  !-------------------------------------------------------------
+  !
+  !-------------------------------------------------------------
   if( geo%west == geo%east .or. abs(geo%east - geo%west) == 3.6d2 )then
     lonrange = 3.6d2
   else

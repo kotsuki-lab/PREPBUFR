@@ -13,7 +13,7 @@ DIR_PREPBUFR="../data_prepbufr/unzip"
 if [ $# -eq 2 ]; then
   IY=`echo $(( 10#$1 ))`
   IM=`echo $(( 10#$2 ))`
-  ID=0
+  ID=1
   EY=$IY
   EM=$IM
   ED=`get_dymax $IY $IM`
@@ -47,8 +47,6 @@ fi
 DMPDIR="out/dump"
 
 mkdir -p $DMPDIR
-
-cp $0 prepbufr/.
 #---------------------------------------------------------------
 # Loop for time
 #---------------------------------------------------------------
